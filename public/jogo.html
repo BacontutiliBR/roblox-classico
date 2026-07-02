@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Jogo</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #87CEEB; touch-action: none; font-family: sans-serif; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 10px; left: 10px; color: white; font-size: 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+  #btn-sair { position: fixed; top: 10px; right: 56px; background: rgba(0,0,0,0.4); color:white; border:1px solid rgba(255,255,255,0.5); border-radius:8px; padding:6px 10px; font-size:12px; }
+  #controles { position: fixed; bottom: 24px; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 24px; pointer-events: none; }
+  .direcional { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); gap: 6px; pointer-events: auto; }
+  .botao { background: rgba(255,255,255,0.25); border: 2px solid rgba(255,255,255,0.55); border-radius: 10px; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; user-select: none; }
+  .botao:active { background: rgba(255,255,255,0.55); }
+  #pular { pointer-events: auto; width: 80px; height: 80px; border-radius: 50%; background: rgba(255,200,0,0.35); border: 2px solid rgba(255,200,0,0.7); color: white; font-weight: bold; font-size: 13px; }
+  #pular:active { background: rgba(255,200,0,0.7); }
+
+  #chat-toggle { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; border: 1px solid rgba(255,255,255,0.5); border-radius: 8px; padding: 6px 10px; font-size: 15px; }
+  #chat-caixa { position: fixed; top: 48px; right: 10px; width: 200px; max-height: 240px; background: rgba(0,0,0,0.55); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; }
+  #chat-mensagens { flex: 1; overflow-y: auto; font-size: 11px; color: white; margin-bottom: 6px; max-height: 170px; }
+  #chat-mensagens p { margin: 3px 0; }
+  #chat-mensagens .nome-msg { color: #7fd1ff; font-weight: bold; }
+  #chat-input-linha { display: flex; gap: 4px; }
+  #chat-input { flex: 1; padding: 6px; border-radius: 4px; border: none; font-size: 12px; }
+  #chat-enviar { padding: 6px 8px; border-radius: 4px; border: none; background: #3a6ab5; color: white; font-size: 12px; }
+  .bolha-fala { position: fixed; background: white; color: #111; padding: 4px 9px; border-radius: 10px; font-size: 11px; max-width: 150px; text-align: center; pointer-events: none; display: none; transform: translate(-50%, -100%); }
+  #status-conexao { position: fixed; top: 10px; left: 10px; margin-top: 20px; color: #ffd54f; font-size: 11px; }
+  .escondido { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="hud">Arraste a tela para olhar ao redor</div>
+<div id="status-conexao"></div>
+<button id="btn-sair" onclick="window.location.href='index.html'">Sair</button>
+<button id="chat-toggle">💬</button>
+<div id="chat-caixa" class="escondido">
+  <div id="chat-mensagens"></div>
+  <div id="chat-input-linha">
+    <input type="text" id="chat-input" placeholder="Diga algo..." maxlength="80">
+    <button id="chat-enviar">➤</button>
+  </div>
+</div>
+<div class="bolha-fala" id="bolha-fala-local"></div>
+
+<div id="controles">
+  <div class="direcional">
+    <div></div><button class="botao" id="btn-frente">▲</button><div></div>
+    <button class="botao" id="btn-esquerda">◀</button><div></div><button class="botao" id="btn-direita">▶</button>
+  </div>
+  <button id="pular">PULAR</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.Fog(0x87CEEB, 25, 70);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+renderer.setPixelRatio(1);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const luzSol = new THREE.DirectionalLight(0xffffff, 0.8);
+luzSol.position.set(10, 20, 10);
+scene.add(luzSol);
+
+const TAMANHO_CHAO = 40;
+const chao = new THREE.Mesh(
+  new THREE.BoxGeometry(TAMANHO_CHAO, 1, TAMANHO_CHAO),
+  new THREE.MeshLambertMaterial({ color: 0x4caf50 })
+);
+chao.position.y = -0.5;
+scene.add(chao);
+
+const blocos = [];
+function criarBloco(x, y, z, cor) {
+  const bloco = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 2, 2),
+    new THREE.MeshLambertMaterial({ color: cor })
+  );
+  bloco.position.set(x, y, z);
+  scene.add(bloco);
+  blocos.push(bloco);
+}
+criarBloco(5, 1, 0, 0xff5252);
+criarBloco(5, 3, 0, 0xffca28);
+criarBloco(-6, 1, 4, 0x42a5f5);
+criarBloco(-3, 1, -7, 0xab47bc);
+criarBloco(8, 1, -4, 0x26c6da);
+
+const skinSalva = JSON.parse(localStorage.getItem('skinEscolhida') || '{}');
+const meuSkin = {
+  corPele: skinSalva.corPele || '#F5CD57',
+  corCamisa: skinSalva.corCamisa || '#4A6FA5',
+  corCalca: skinSalva.corCalca || '#3B3B3B',
+  corCabelo: skinSalva.corCabelo || '#8B4A2B'
+};
+const nomeJogador = localStorage.getItem('nomeJogador') || 'Jogador';
+
+function criarCaixa(largura, altura, profundidade, cor) {
+  return new THREE.Mesh(
+    new THREE.BoxGeometry(largura, altura, profundidade),
+    new THREE.MeshLambertMaterial({ color: cor })
+  );
+}
+
+function criarPersonagemModelo(skin) {
+  const grupo = new THREE.Group();
+
+  function criarMembro(pivoX, pivoY, corMembro) {
+    const pivot = new THREE.Group();
+    pivot.position.set(pivoX, pivoY, 0);
+    const mesh = criarCaixa(1, 2, 1, corMembro);
+    mesh.position.y = -1;
+    pivot.add(mesh);
+    grupo.add(pivot);
+    return pivot;
+  }
+
+  const pernaEsquerdaPivot = criarMembro(-0.55, 2, skin.corCalca);
+  const pernaDireitaPivot = criarMembro(0.55, 2, skin.corCalca);
+  const bracoEsquerdoPivot = criarMembro(-1.5, 4, skin.corPele);
+  const bracoDireitoPivot = criarMembro(1.5, 4, skin.corPele);
+
+  const torso = criarCaixa(2, 2, 1, skin.corCamisa);
+  torso.position.y = 3;
+  grupo.add(torso);
+
+  const cabeca = criarCaixa(1.2, 1.2, 1.2, skin.corPele);
+  cabeca.position.y = 4.8;
+  grupo.add(cabeca);
+
+  const materialRosto = new THREE.MeshLambertMaterial({ color: 0x222222 });
+  const olhoEsquerdo = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), materialRosto);
+  olhoEsquerdo.position.set(-0.25, 4.9, 0.61);
+  grupo.add(olhoEsquerdo);
+  const olhoDireito = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), materialRosto);
+  olhoDireito.position.set(0.25, 4.9, 0.61);
+  grupo.add(olhoDireito);
+
+  const sorrisoGrupo = new THREE.Group();
+  for (let i = -2; i <= 2; i++) {
+    const ponto = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.05), materialRosto);
+    ponto.position.set(i * 0.09, -Math.abs(i) * 0.04, 0);
+    sorrisoGrupo.add(ponto);
+  }
+  sorrisoGrupo.position.set(0, 4.55, 0.61);
+  grupo.add(sorrisoGrupo);
+
+  const baconHair = new THREE.Group();
+  const tufoCentral = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.9, 0),
+    new THREE.MeshLambertMaterial({ color: skin.corCabelo, flatShading: true })
+  );
+  tufoCentral.scale.set(1, 0.75, 1);
+  baconHair.add(tufoCentral);
+  const posicoesTufos = [
+    [0.5, 0.3, 0.4], [-0.5, 0.3, 0.4], [0.5, 0.3, -0.4],
+    [-0.5, 0.3, -0.4], [0, 0.55, 0]
+  ];
+  posicoesTufos.forEach(([x, y, z]) => {
+    const tufo = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.45, 0),
+      new THREE.MeshLambertMaterial({ color: skin.corCabelo, flatShading: true })
+    );
+    tufo.position.set(x, y, z);
+    baconHair.add(tufo);
+  });
+  baconHair.position.y = 5.35;
+  grupo.add(baconHair);
+
+  scene.add(grupo);
+  return { grupo, pernaEsquerdaPivot, pernaDireitaPivot, bracoEsquerdoPivot, bracoDireitoPivot };
+}
+
+const meuPersonagem = criarPersonagemModelo(meuSkin);
+const grupoPersonagem = meuPersonagem.grupo;
+const pernaEsquerdaPivot = meuPersonagem.pernaEsquerdaPivot;
+const pernaDireitaPivot = meuPersonagem.pernaDireitaPivot;
+const bracoEsquerdoPivot = meuPersonagem.bracoEsquerdoPivot;
+const bracoDireitoPivot = meuPersonagem.bracoDireitoPivot;
+grupoPersonagem.position.set(0, 0, 8);
+
+let anguloCamera = 0;
+let alturaCamera = 0.3;
+const distanciaCamera = 8;
+let arrastando = false;
+let ultimoX = 0;
+let ultimoY = 0;
+
+function iniciarArraste(x, y) {
+  arrastando = true;
+  ultimoX = x;
+  ultimoY = y;
+}
+function moverArraste(x, y) {
+  if (!arrastando) return;
+  const deltaX = x - ultimoX;
+  const deltaY = y - ultimoY;
+  anguloCamera -= deltaX * 0.008;
+  alturaCamera = Math.max(-0.5, Math.min(1.2, alturaCamera + deltaY * 0.006));
+  ultimoX = x;
+  ultimoY = y;
+}
+function pararArraste() {
+  arrastando = false;
+}
+
+renderer.domElement.addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  iniciarArraste(t.clientX, t.clientY);
+});
+renderer.domElement.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  moverArraste(t.clientX, t.clientY);
+});
+renderer.domElement.addEventListener('touchend', pararArraste);
+
+renderer.domElement.addEventListener('mousedown', (e) => iniciarArraste(e.clientX, e.clientY));
+window.addEventListener('mousemove', (e) => moverArraste(e.clientX, e.clientY));
+window.addEventListener('mouseup', pararArraste);
+
+const outrosJogadores = {};
+let meuId = null;
+const statusConexao = document.getElementById('status-conexao');
+
+function worldToScreen(vec3) {
+  const v = vec3.clone().project(camera);
+  return { x: (v.x + 1) / 2 * window.innerWidth, y: (-v.y + 1) / 2 * window.innerHeight };
+}
+
+function criarBolhaElemento() {
+  const el = document.createElement('div');
+  el.className = 'bolha-fala';
+  document.body.appendChild(el);
+  return el;
+}
+
+function mostrarBolha(el, texto) {
+  el.textContent = texto;
+  el.style.display = 'block';
+  clearTimeout(el._timeout);
+  el._timeout = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function criarOutroJogador(dados) {
+  const skin = dados.skin || {};
+  const modelo = criarPersonagemModelo({
+    corPele: skin.corPele || '#F5CD57',
+    corCamisa: skin.corCamisa || '#4A6FA5',
+    corCalca: skin.corCalca || '#3B3B3B',
+    corCabelo: skin.corCabelo || '#8B4A2B'
+  });
+  modelo.grupo.position.set(dados.x || 0, dados.y || 0, dados.z || 8);
+
+  const nomeSprite = document.createElement('div');
+  nomeSprite.textContent = dados.nome || 'Jogador';
+  nomeSprite.style.position = 'fixed';
+  nomeSprite.style.color = 'white';
+  nomeSprite.style.fontSize = '11px';
+  nomeSprite.style.textShadow = '0 1px 3px rgba(0,0,0,0.8)';
+  nomeSprite.style.pointerEvents = 'none';
+  nomeSprite.style.transform = 'translate(-50%, -100%)';
+  document.body.appendChild(nomeSprite);
+
+  outrosJogadores[dados.id] = {
+    modelo,
+    bolha: criarBolhaElemento(),
+    nomeSprite,
+    alvoX: dados.x || 0, alvoY: dados.y || 0, alvoZ: dados.z || 8,
+    alvoRotY: dados.rotY || 0, andando: false,
+    tempoAnimacao: 0
+  };
+}
+
+function removerOutroJogador(id) {
+  const j = outrosJogadores[id];
+  if (!j) return;
+  scene.remove(j.modelo.grupo);
+  j.bolha.remove();
+  j.nomeSprite.remove();
+  delete outrosJogadores[id];
+}
+
+let ws;
+function conectar() {
+  ws = new WebSocket('ws://' + location.host);
+
+  ws.addEventListener('open', () => {
+    statusConexao.textContent = '';
+    ws.send(JSON.stringify({ tipo: 'entrar', nome: nomeJogador, skin: meuSkin }));
+  });
+
+  ws.addEventListener('close', () => {
+    statusConexao.textContent = 'Conexão perdida. Tentando reconectar...';
+    setTimeout(conectar, 2000);
+  });
+
+  ws.addEventListener('message', (event) => {
+    const msg = JSON.parse(event.data);
+
+    if (msg.tipo === 'bemvindo') {
+      meuId = msg.id;
+      Object.values(msg.jogadores).forEach((j) => {
+        if (j.id !== meuId) criarOutroJogador(j);
+      });
+    }
+
+    if (msg.tipo === 'entrou' && msg.jogador.id !== meuId) {
+      criarOutroJogador(msg.jogador);
+    }
+
+    if (msg.tipo === 'mover' && outrosJogadores[msg.id]) {
+      const j = outrosJogadores[msg.id];
+      j.alvoX = msg.x; j.alvoY = msg.y; j.alvoZ = msg.z;
+      j.alvoRotY = msg.rotY; j.andando = msg.andando;
+    }
+
+    if (msg.tipo === 'chat') {
+      if (msg.id === meuId) {
+        mostrarBolha(document.getElementById('bolha-fala-local'), msg.texto);
+      } else if (outrosJogadores[msg.id]) {
+        mostrarBolha(outrosJogadores[msg.id].bolha, msg.texto);
+      }
+      const p = document.createElement('p');
+      p.innerHTML = '<span class="nome-msg">' + msg.nome + ':</span> ' + msg.texto;
+      chatMensagens.appendChild(p);
+      chatMensagens.scrollTop = chatMensagens.scrollHeight;
+    }
+
+    if (msg.tipo === 'saiu') {
+      removerOutroJogador(msg.id);
+    }
+  });
+}
+
+const chatToggle = document.getElementById('chat-toggle');
+const chatCaixa = document.getElementById('chat-caixa');
+const chatMensagens = document.getElementById('chat-mensagens');
+const chatInput = document.getElementById('chat-input');
+const chatEnviar = document.getElementById('chat-enviar');
+
+chatToggle.addEventListener('click', () => {
+  chatCaixa.classList.toggle('escondido');
+});
+
+function enviarMensagem() {
+  const texto = chatInput.value.trim();
+  if (!texto || !ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ tipo: 'chat', texto }));
+  chatInput.value = '';
+}
+chatEnviar.addEventListener('click', enviarMensagem);
+chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') enviarMensagem(); });
+
+conectar();
+
+const ALTURA_PERSONAGEM = 5.4;
+const RAIO_PERSONAGEM = 0.7;
+const GRAVIDADE = -0.02;
+const VELOCIDADE_PULO = 0.34;
+const VELOCIDADE_MOVIMENTO = 0.1;
+let velocidadeY = 0;
+let noChao = false;
+let tempoAnimacao = 0;
+const direcaoMovimento = new THREE.Vector3();
+const vetorForward = new THREE.Vector3();
+const vetorRight = new THREE.Vector3();
+let ultimoEnvio = 0;
+
+function colideComBloco(posX, posFeetY, posZ, bloco) {
+  const dx = Math.abs(posX - bloco.position.x);
+  const dz = Math.abs(posZ - bloco.position.z);
+  const topoBloco = bloco.position.y + 1;
+  const baseBloco = bloco.position.y - 1;
+  const topoChar = posFeetY + ALTURA_PERSONAGEM;
+  return dx < 1 + RAIO_PERSONAGEM && dz < 1 + RAIO_PERSONAGEM &&
+         topoChar > baseBloco && posFeetY < topoBloco;
+}
+
+const teclas = { frente: false, esquerda: false, direita: false };
+let quererPular = false;
+
+function configurarBotao(id, onPress, onRelease) {
+  const el = document.getElementById(id);
+  el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); onPress(); });
+  el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); onRelease(); });
+  el.addEventListener('mousedown', onPress);
+  el.addEventListener('mouseup', onRelease);
+}
+
+configurarBotao('btn-frente', () => teclas.frente = true, () => teclas.frente = false);
+configurarBotao('btn-esquerda', () => teclas.esquerda = true, () => teclas.esquerda = false);
+configurarBotao('btn-direita', () => teclas.direita = true, () => teclas.direita = false);
+
+const btnPular = document.getElementById('pular');
+btnPular.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); quererPular = true; });
+btnPular.addEventListener('mousedown', () => quererPular = true);
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'w' || e.key === 'ArrowUp') teclas.frente = true;
+  if (e.key === 'a' || e.key === 'ArrowLeft') teclas.esquerda = true;
+  if (e.key === 'd' || e.key === 'ArrowRight') teclas.direita = true;
+  if (e.key === ' ') quererPular = true;
+});
+window.addEventListener('keyup', (e) => {
+  if (e.key === 'w' || e.key === 'ArrowUp') teclas.frente = false;
+  if (e.key === 'a' || e.key === 'ArrowLeft') teclas.esquerda = false;
+  if (e.key === 'd' || e.key === 'ArrowRight') teclas.direita = false;
+});
+
+function animar() {
+  requestAnimationFrame(animar);
+
+  vetorForward.set(-Math.sin(anguloCamera), 0, -Math.cos(anguloCamera));
+  vetorRight.set(Math.cos(anguloCamera), 0, -Math.sin(anguloCamera));
+
+  direcaoMovimento.set(0, 0, 0);
+  if (teclas.frente) direcaoMovimento.add(vetorForward);
+  if (teclas.direita) direcaoMovimento.add(vetorRight);
+  if (teclas.esquerda) direcaoMovimento.sub(vetorRight);
+
+  const andando = direcaoMovimento.lengthSq() > 0.0001;
+  if (andando) {
+    direcaoMovimento.normalize().multiplyScalar(VELOCIDADE_MOVIMENTO);
+    grupoPersonagem.position.x += direcaoMovimento.x;
+    grupoPersonagem.position.z += direcaoMovimento.z;
+    grupoPersonagem.rotation.y = Math.atan2(direcaoMovimento.x, direcaoMovimento.z);
+    tempoAnimacao += 0.15;
+  }
+
+  const anguloAlvo = andando ? Math.sin(tempoAnimacao) * 0.8 : 0;
+  pernaEsquerdaPivot.rotation.x = THREE.MathUtils.lerp(pernaEsquerdaPivot.rotation.x, anguloAlvo, 0.3);
+  pernaDireitaPivot.rotation.x = THREE.MathUtils.lerp(pernaDireitaPivot.rotation.x, -anguloAlvo, 0.3);
+  bracoEsquerdoPivot.rotation.x = THREE.MathUtils.lerp(bracoEsquerdoPivot.rotation.x, -anguloAlvo, 0.3);
+  bracoDireitoPivot.rotation.x = THREE.MathUtils.lerp(bracoDireitoPivot.rotation.x, anguloAlvo, 0.3);
+
+  if (quererPular && noChao) {
+    velocidadeY = VELOCIDADE_PULO;
+    noChao = false;
+  }
+  quererPular = false;
+
+  velocidadeY += GRAVIDADE;
+  let novoY = grupoPersonagem.position.y + velocidadeY;
+
+  noChao = false;
+  if (novoY <= 0) {
+    novoY = 0;
+    velocidadeY = 0;
+    noChao = true;
+  }
+
+  for (const bloco of blocos) {
+    if (velocidadeY <= 0 && colideComBloco(grupoPersonagem.position.x, novoY, grupoPersonagem.position.z, bloco)) {
+      const topoComBloco = bloco.position.y + 1;
+      if (grupoPersonagem.position.y >= bloco.position.y + 1 - 0.15) {
+        novoY = topoComBloco;
+        velocidadeY = 0;
+        noChao = true;
+      }
+    }
+  }
+  grupoPersonagem.position.y = novoY;
+
+  const agora = performance.now();
+  if (agora - ultimoEnvio > 60 && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      tipo: 'mover',
+      x: grupoPersonagem.position.x,
+      y: grupoPersonagem.position.y,
+      z: grupoPersonagem.position.z,
+      rotY: grupoPersonagem.rotation.y,
+      andando
+    }));
+    ultimoEnvio = agora;
+  }
+
+  Object.values(outrosJogadores).forEach((j) => {
+    j.modelo.grupo.position.x = THREE.MathUtils.lerp(j.modelo.grupo.position.x, j.alvoX, 0.25);
+    j.modelo.grupo.position.y = THREE.MathUtils.lerp(j.modelo.grupo.position.y, j.alvoY, 0.25);
+    j.modelo.grupo.position.z = THREE.MathUtils.lerp(j.modelo.grupo.position.z, j.alvoZ, 0.25);
+    j.modelo.grupo.rotation.y = j.alvoRotY;
+
+    if (j.andando) j.tempoAnimacao += 0.15;
+    const ang = j.andando ? Math.sin(j.tempoAnimacao) * 0.8 : 0;
+    j.modelo.pernaEsquerdaPivot.rotation.x = THREE.MathUtils.lerp(j.modelo.pernaEsquerdaPivot.rotation.x, ang, 0.3);
+    j.modelo.pernaDireitaPivot.rotation.x = THREE.MathUtils.lerp(j.modelo.pernaDireitaPivot.rotation.x, -ang, 0.3);
+    j.modelo.bracoEsquerdoPivot.rotation.x = THREE.MathUtils.lerp(j.modelo.bracoEsquerdoPivot.rotation.x, -ang, 0.3);
+    j.modelo.bracoDireitoPivot.rotation.x = THREE.MathUtils.lerp(j.modelo.bracoDireitoPivot.rotation.x, ang, 0.3);
+
+    const cabecaMundo = new THREE.Vector3(j.modelo.grupo.position.x, j.modelo.grupo.position.y + 6.2, j.modelo.grupo.position.z);
+    const pos2d = worldToScreen(cabecaMundo);
+    j.nomeSprite.style.left = pos2d.x + 'px';
+    j.nomeSprite.style.top = pos2d.y + 'px';
+    if (j.bolha.style.display === 'block') {
+      j.bolha.style.left = pos2d.x + 'px';
+      j.bolha.style.top = (pos2d.y - 16) + 'px';
+    }
+  });
+
+  const offsetX = distanciaCamera * Math.sin(anguloCamera);
+  const offsetZ = distanciaCamera * Math.cos(anguloCamera);
+  camera.position.set(
+    grupoPersonagem.position.x + offsetX,
+    grupoPersonagem.position.y + 3 + alturaCamera * 4,
+    grupoPersonagem.position.z + offsetZ
+  );
+  camera.lookAt(
+    grupoPersonagem.position.x,
+    grupoPersonagem.position.y + 3,
+    grupoPersonagem.position.z
+  );
+
+  const bolhaLocal = document.getElementById('bolha-fala-local');
+  if (bolhaLocal.style.display === 'block') {
+    const cabecaMundo = new THREE.Vector3(grupoPersonagem.position.x, grupoPersonagem.position.y + 6.2, grupoPersonagem.position.z);
+    const pos2d = worldToScreen(cabecaMundo);
+    bolhaLocal.style.left = pos2d.x + 'px';
+    bolhaLocal.style.top = pos2d.y + 'px';
+  }
+
+  renderer.render(scene, camera);
+}
+animar();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

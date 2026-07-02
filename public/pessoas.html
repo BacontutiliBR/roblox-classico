@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pessoas</title>
+<style>
+  body { margin:0; font-family: Arial, Helvetica, sans-serif; background: linear-gradient(#bcdff5, #eaf6fd 340px, #eaf6fd); color:#222; min-height:100vh; }
+  .banner-topo { background:#15161a; background-image:repeating-linear-gradient(45deg,#1c1d22,#1c1d22 12px,#25262c 12px,#25262c 24px); padding:16px 14px 20px; text-align:center; }
+  .logo-topo { font-size:24px; font-weight:900; letter-spacing:-1px; color:#e6342a; text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff; }
+  .navbar { background:#33588c; padding:8px 10px; display:flex; gap:10px; flex-wrap:wrap; font-size:11px; }
+  .navbar a { color:#fff; text-decoration:none; font-weight:bold; }
+  .conteudo { padding:16px; max-width:600px; margin:0 auto; }
+  .caixa { background:white; border:1px solid #ccc; border-radius:6px; padding:14px; margin-bottom:16px; }
+  .caixa h3 { margin-top:0; font-size:15px; border-bottom:1px solid #ddd; padding-bottom:6px; }
+  input#busca-pessoa { width:100%; padding:10px; border-radius:4px; border:1px solid #aaa; box-sizing:border-box; font-size:14px; margin-bottom:8px; }
+  .linha-pessoa { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #eee; }
+  .linha-pessoa:last-child { border-bottom:none; }
+  .avatar-pessoa { width:36px; height:36px; border-radius:50%; background:#4A6FA5; flex-shrink:0; }
+  .nome-pessoa { flex:1; font-size:13px; font-weight:bold; }
+  .btn-mini { padding:6px 10px; border-radius:4px; border:none; font-size:11px; font-weight:bold; color:white; }
+  .btn-add { background:#3a6ab5; }
+  .btn-aceitar { background:#4caf1f; }
+  .btn-recusar { background:#c0392b; }
+  .sem-itens { font-size:12px; color:#888; padding:8px 0; }
+</style>
+</head>
+<body>
+
+<div class="banner-topo"><div class="logo-topo">MeuJogo</div></div>
+<div class="navbar">
+  <a href="index.html">Início</a><a href="jogo.html">Jogar</a><a href="pessoas.html">Pessoas</a>
+</div>
+
+<div class="conteudo">
+
+  <div class="caixa">
+    <h3>Buscar pessoas</h3>
+    <input type="text" id="busca-pessoa" placeholder="Digite um nome de usuário...">
+    <div id="resultado-busca"></div>
+  </div>
+
+  <div class="caixa">
+    <h3>Pedidos de amizade</h3>
+    <div id="lista-pedidos"></div>
+  </div>
+
+  <div class="caixa">
+    <h3>Meus amigos</h3>
+    <div id="lista-amigos"></div>
+  </div>
+
+</div>
+<script>
+const meuEmail = localStorage.getItem('contaAtual');
+if (!meuEmail) window.location.href = 'index.html';
+
+function pegarContas() {
+  return JSON.parse(localStorage.getItem('contas') || '{}');
+}
+function pegarAmizades() {
+  return JSON.parse(localStorage.getItem('amizades') || '{}');
+}
+function salvarAmizades(dados) {
+  localStorage.setItem('amizades', JSON.stringify(dados));
+}
+function garantirRegistro(amizades, email) {
+  if (!amizades[email]) amizades[email] = { amigos: [], pedidosRecebidos: [], pedidosEnviados: [] };
+  return amizades[email];
+}
+
+const buscaInput = document.getElementById('busca-pessoa');
+const resultadoBusca = document.getElementById('resultado-busca');
+const listaPedidos = document.getElementById('lista-pedidos');
+const listaAmigos = document.getElementById('lista-amigos');
+
+function linhaPessoa(email, nome, botoesHtml) {
+  return `<div class="linha-pessoa">
+    <div class="avatar-pessoa"></div>
+    <div class="nome-pessoa">${nome}</div>
+    ${botoesHtml}
+  </div>`;
+}
+
+function renderizarBusca() {
+  const termo = buscaInput.value.trim().toLowerCase();
+  if (!termo) { resultadoBusca.innerHTML = ''; return; }
+
+  const contas = pegarContas();
+  const amizades = pegarAmizades();
+  const meuRegistro = garantirRegistro(amizades, meuEmail);
+
+  const resultados = Object.entries(contas).filter(([email, dados]) =>
+    email !== meuEmail && dados.nome && dados.nome.toLowerCase().includes(termo)
+  );
+
+  if (resultados.length === 0) {
+    resultadoBusca.innerHTML = '<p class="sem-itens">Ninguém encontrado.</p>';
+    return;
+  }
+
+  resultadoBusca.innerHTML = resultados.map(([email, dados]) => {
+    let botao;
+    if (meuRegistro.amigos.includes(email)) {
+      botao = '<span class="sem-itens">Já é seu amigo</span>';
+    } else if (meuRegistro.pedidosEnviados.includes(email)) {
+      botao = '<span class="sem-itens">Pedido enviado</span>';
+    } else {
+      botao = `<button class="btn-mini btn-add" onclick="enviarPedido('${email}')">Adicionar</button>`;
+    }
+    return linhaPessoa(email, dados.nome, botao);
+  }).join('');
+}
+
+function enviarPedido(emailAlvo) {
+  const amizades = pegarAmizades();
+  const meu = garantirRegistro(amizades, meuEmail);
+  const alvo = garantirRegistro(amizades, emailAlvo);
+
+  if (meu.pedidosEnviados.includes(emailAlvo) || meu.amigos.includes(emailAlvo)) return;
+  meu.pedidosEnviados.push(emailAlvo);
+  alvo.pedidosRecebidos.push(meuEmail);
+
+  salvarAmizades(amizades);
+  renderizarTudo();
+}
+
+function aceitarPedido(emailOrigem) {
+  const amizades = pegarAmizades();
+  const meu = garantirRegistro(amizades, meuEmail);
+  const origem = garantirRegistro(amizades, emailOrigem);
+
+  meu.pedidosRecebidos = meu.pedidosRecebidos.filter(e => e !== emailOrigem);
+  origem.pedidosEnviados = origem.pedidosEnviados.filter(e => e !== meuEmail);
+
+  if (!meu.amigos.includes(emailOrigem)) meu.amigos.push(emailOrigem);
+  if (!origem.amigos.includes(meuEmail)) origem.amigos.push(meuEmail);
+
+  salvarAmizades(amizades);
+  renderizarTudo();
+}
+
+function recusarPedido(emailOrigem) {
+  const amizades = pegarAmizades();
+  const meu = garantirRegistro(amizades, meuEmail);
+  const origem = garantirRegistro(amizades, emailOrigem);
+
+  meu.pedidosRecebidos = meu.pedidosRecebidos.filter(e => e !== emailOrigem);
+  origem.pedidosEnviados = origem.pedidosEnviados.filter(e => e !== meuEmail);
+
+  salvarAmizades(amizades);
+  renderizarTudo();
+}
+
+function renderizarPedidos() {
+  const contas = pegarContas();
+  const amizades = pegarAmizades();
+  const meu = garantirRegistro(amizades, meuEmail);
+
+  if (meu.pedidosRecebidos.length === 0) {
+    listaPedidos.innerHTML = '<p class="sem-itens">Nenhum pedido pendente.</p>';
+    return;
+  }
+
+  listaPedidos.innerHTML = meu.pedidosRecebidos.map(email => {
+    const nome = contas[email] ? contas[email].nome : 'Jogador';
+    const botoes = `
+      <button class="btn-mini btn-aceitar" onclick="aceitarPedido('${email}')">Aceitar</button>
+      <button class="btn-mini btn-recusar" onclick="recusarPedido('${email}')">Recusar</button>
+    `;
+    return linhaPessoa(email, nome, botoes);
+  }).join('');
+}
+
+function renderizarAmigos() {
+  const contas = pegarContas();
+  const amizades = pegarAmizades();
+  const meu = garantirRegistro(amizades, meuEmail);
+
+  if (meu.amigos.length === 0) {
+    listaAmigos.innerHTML = '<p class="sem-itens">Você ainda não tem amigos adicionados.</p>';
+    return;
+  }
+
+  listaAmigos.innerHTML = meu.amigos.map(email => {
+    const nome = contas[email] ? contas[email].nome : 'Jogador';
+    return linhaPessoa(email, nome, '');
+  }).join('');
+}
+
+function renderizarTudo() {
+  renderizarBusca();
+  renderizarPedidos();
+  renderizarAmigos();
+}
+
+buscaInput.addEventListener('input', renderizarBusca);
+renderizarTudo();
+</script>
+</body>
+</html>

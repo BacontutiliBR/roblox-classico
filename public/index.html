@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Jogo</title>
+<style>
+  body { margin:0; font-family: Arial, Helvetica, sans-serif; background: linear-gradient(#bcdff5, #eaf6fd 340px, #eaf6fd); color:#222; }
+  .escondido { display:none !important; }
+
+  .banner-topo { background:#15161a; background-image:repeating-linear-gradient(45deg,#1c1d22,#1c1d22 12px,#25262c 12px,#25262c 24px); padding:16px 14px 20px; position:relative; }
+  .tag-canto { position:absolute; top:0; left:0; background:#000; color:#fff; font-size:11px; padding:4px 10px; border-bottom-right-radius:6px; }
+  .logo-topo { text-align:center; font-size:32px; font-weight:900; letter-spacing:-1px; color:#e6342a; text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 4px 4px 0 rgba(0,0,0,0.4); padding-top:8px; }
+  .btn-topo { position:absolute; top:10px; right:10px; background:#4caf1f; color:white; border:2px solid #3c8a17; padding:6px 12px; border-radius:6px; font-weight:bold; font-size:11px; }
+
+  .navbar { background:#33588c; padding:8px 10px; display:flex; gap:10px; flex-wrap:wrap; font-size:11px; }
+  .navbar a { color:#fff; text-decoration:none; font-weight:bold; }
+
+  .conteudo { padding:16px; max-width:760px; margin:0 auto; }
+
+  .caixa-login { background:#f4f4f4; border:1px solid #999; border-radius:4px; overflow:hidden; margin-bottom:16px; }
+  .caixa-login .titulo-caixa { background:#5b5b5b; color:white; font-size:13px; font-weight:bold; padding:7px 10px; }
+  .caixa-login .corpo-caixa { padding:14px; }
+
+  .abas { display:flex; margin-bottom:12px; border-radius:4px; overflow:hidden; border:1px solid #ccc; }
+  .aba { flex:1; padding:9px; text-align:center; background:#e2e2e2; cursor:pointer; border:none; font-size:13px; color:#333; }
+  .aba.ativa { background:#33588c; color:white; }
+  input { width:100%; padding:10px; margin-bottom:8px; border-radius:3px; border:1px solid #aaa; box-sizing:border-box; font-size:14px; }
+  button.principal { width:100%; padding:10px; border-radius:3px; border:1px solid #2a4a7a; background:#3a6ab5; color:white; font-size:14px; font-weight:bold; margin-top:4px; }
+  .erro { color:#c00; font-size:12px; text-align:center; min-height:16px; }
+
+  .banner-gratis { background:linear-gradient(#5cc22a,#3c8a17); color:white; padding:14px; border-radius:6px; display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; font-weight:bold; font-size:13px; }
+
+  .painel-destaque { background:white; border:1px solid #ccc; border-radius:6px; padding:14px; margin-bottom:16px; }
+  .painel-destaque h3 { margin-top:0; font-size:15px; }
+  .thumb-destaque { width:100%; height:130px; background:#2255a4; border-radius:4px; display:flex; align-items:center; justify-content:center; color:white; font-size:40px; margin-bottom:10px; }
+
+  .rodape { text-align:center; font-size:11px; color:#557; padding:20px 14px 30px; }
+  .rodape a { color:#2255a4; }
+
+  .linha-cor { margin-bottom:14px; }
+  .linha-cor p { margin:0 0 6px 0; font-size:13px; color:#555; }
+  .swatches { display:flex; gap:8px; flex-wrap:wrap; }
+  .swatch { width:34px; height:34px; border-radius:50%; border:3px solid transparent; }
+  .swatch.selecionado { border-color:#33588c; }
+  #previa { width:100%; height:140px; background:#f2f2f2; border:1px solid #ccc; border-radius:6px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:16px; overflow:hidden; }
+  .caixa-branca { background:white; border:1px solid #ccc; border-radius:6px; padding:16px; max-width:400px; margin:0 auto; }
+
+  .avatar-mini { width:30px; height:30px; border-radius:50%; background:#4A6FA5; display:inline-block; vertical-align:middle; }
+  .grade-jogos { display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; }
+  .cartao-jogo { width:150px; cursor:pointer; background:white; border:1px solid #ccc; border-radius:6px; padding:8px; }
+  .cartao-jogo .thumb-jogo { width:100%; height:90px; background:#2255a4; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:34px; color:white; }
+  .cartao-jogo.cartao-em-breve .thumb-jogo { background:#999; opacity:0.6; }
+  .nome-cartao { font-size:12px; margin-top:6px; color:#222; font-weight:bold; }
+  .criador-cartao { font-size:10px; color:#666; }
+</style>
+</head>
+<body>
+
+<div id="pagina-login">
+  <div class="banner-topo">
+    <span class="tag-canto">Login</span>
+    <button class="btn-topo">JOGAR AGORA</button>
+    <div class="logo-topo">MeuJogo</div>
+  </div>
+  <div class="navbar">
+    <a href="#">Meu Perfil</a><a href="#">Jogos</a><a href="#">Catálogo</a><a href="pessoas.html">Pessoas</a><a href="#">Fórum</a><a href="#">Notícias</a><a href="#">Ajuda</a>
+  </div>
+  <div class="conteudo">
+    <div class="caixa-login" style="max-width:340px;">
+      <div class="titulo-caixa">Login de Membro</div>
+      <div class="corpo-caixa">
+        <div class="abas">
+          <button class="aba ativa" id="aba-entrar">Entrar</button>
+          <button class="aba" id="aba-criar">Registrar</button>
+        </div>
+        <input type="text" id="campo-nome" placeholder="Nome de usuário" class="escondido">
+        <input type="email" id="campo-email" placeholder="Email">
+        <input type="password" id="campo-senha" placeholder="Senha">
+        <button class="principal" id="btn-confirmar">Entrar</button>
+        <p class="erro" id="msg-erro"></p>
+      </div>
+    </div>
+
+    <div class="banner-gratis">
+      <span>O JOGO GRÁTIS DE CONSTRUÇÃO ONLINE</span>
+    </div>
+
+    <div class="painel-destaque">
+      <h3>Jogo em Destaque: Mundo de Blocos</h3>
+      <div class="thumb-destaque">🧱</div>
+      <p style="font-size:12px;color:#555;">Explore, pule nos blocos e personalize seu personagem. Crie sua conta para jogar!</p>
+    </div>
+  </div>
+  <div class="rodape">
+    Meu Jogo — projeto pessoal inspirado no Roblox Clássico (2006-2009).<br>
+    <a href="#">Sobre</a> | <a href="#">Contato</a> | <a href="#">Privacidade</a>
+  </div>
+</div>
+
+<div class="escondido" id="pagina-skin">
+  <div class="banner-topo">
+    <div class="logo-topo" style="font-size:24px;">MeuJogo</div>
+  </div>
+  <div class="navbar">
+    <a href="#">Meu Perfil</a><a href="#">Jogos</a><a href="#">Catálogo</a>
+  </div>
+  <div class="conteudo">
+    <div class="caixa-branca">
+      <h1 style="text-align:center;font-size:19px;margin-top:0;">Escolha sua skin</h1>
+      <div id="previa"></div>
+      <div class="linha-cor">
+        <p>Cor da pele</p>
+        <div class="swatches" data-alvo="corPele">
+          <div class="swatch" data-cor="#F5CD57" style="background:#F5CD57"></div>
+          <div class="swatch" data-cor="#E8A26B" style="background:#E8A26B"></div>
+          <div class="swatch" data-cor="#C97A50" style="background:#C97A50"></div>
+          <div class="swatch" data-cor="#8A5A3B" style="background:#8A5A3B"></div>
+        </div>
+      </div>
+      <div class="linha-cor">
+        <p>Camisa</p>
+        <div class="swatches" data-alvo="corCamisa">
+          <div class="swatch" data-cor="#4A6FA5" style="background:#4A6FA5"></div>
+          <div class="swatch" data-cor="#D9534F" style="background:#D9534F"></div>
+          <div class="swatch" data-cor="#5CB85C" style="background:#5CB85C"></div>
+          <div class="swatch" data-cor="#333333" style="background:#333333"></div>
+        </div>
+      </div>
+      <div class="linha-cor">
+        <p>Calça</p>
+        <div class="swatches" data-alvo="corCalca">
+          <div class="swatch" data-cor="#3B3B3B" style="background:#3B3B3B"></div>
+          <div class="swatch" data-cor="#5C4A3B" style="background:#5C4A3B"></div>
+          <div class="swatch" data-cor="#2C3E6B" style="background:#2C3E6B"></div>
+          <div class="swatch" data-cor="#000000" style="background:#000000"></div>
+        </div>
+      </div>
+      <div class="linha-cor">
+        <p>Bacon Hair</p>
+        <div class="swatches" data-alvo="corCabelo">
+          <div class="swatch" data-cor="#8B4A2B" style="background:#8B4A2B"></div>
+          <div class="swatch" data-cor="#5C3A21" style="background:#5C3A21"></div>
+          <div class="swatch" data-cor="#D2A679" style="background:#D2A679"></div>
+          <div class="swatch" data-cor="#C9A227" style="background:#C9A227"></div>
+        </div>
+      </div>
+      <button class="principal" id="btn-confirmar-skin">Continuar ▶</button>
+    </div>
+  </div>
+</div>
+
+<div class="escondido" id="pagina-home">
+  <div class="banner-topo">
+    <span class="tag-canto" id="tag-logado">Logado</span>
+    <div class="logo-topo" style="font-size:24px;">MeuJogo</div>
+  </div>
+  <div class="navbar">
+    <a href="#" id="link-sair">Sair</a><a href="#">Jogos</a><a href="#">Catálogo</a><a href="pessoas.html">Pessoas</a><a href="#">Fórum</a>
+  </div>
+  <div class="conteudo">
+    <p style="font-size:13px;"><span class="avatar-mini" id="avatar-home"></span> &nbsp;<strong id="titulo-boasvindas">Olá, Jogador!</strong></p>
+    <h3 style="font-size:15px;border-bottom:1px solid #ccc;padding-bottom:6px;">Jogos Mais Populares (Agora)</h3>
+    <div class="grade-jogos">
+      <div class="cartao-jogo" id="btn-jogar">
+        <div class="thumb-jogo">🧱</div>
+        <div class="nome-cartao">Mundo de Blocos</div>
+        <div class="criador-cartao">Criador: Você</div>
+      </div>
+      <div class="cartao-jogo cartao-em-breve">
+        <div class="thumb-jogo">🔒</div>
+        <div class="nome-cartao">Em breve</div>
+        <div class="criador-cartao">&nbsp;</div>
+      </div>
+      <div class="cartao-jogo cartao-em-breve">
+        <div class="thumb-jogo">🔒</div>
+        <div class="nome-cartao">Em breve</div>
+        <div class="criador-cartao">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const paginaLogin = document.getElementById('pagina-login');
+const paginaSkin = document.getElementById('pagina-skin');
+const paginaHome = document.getElementById('pagina-home');
+const abaEntrar = document.getElementById('aba-entrar');
+const abaCriar = document.getElementById('aba-criar');
+const campoNome = document.getElementById('campo-nome');
+const campoEmail = document.getElementById('campo-email');
+const campoSenha = document.getElementById('campo-senha');
+const btnConfirmar = document.getElementById('btn-confirmar');
+const msgErro = document.getElementById('msg-erro');
+const previa = document.getElementById('previa');
+const btnConfirmarSkin = document.getElementById('btn-confirmar-skin');
+const btnJogar = document.getElementById('btn-jogar');
+const tituloBoasVindas = document.getElementById('titulo-boasvindas');
+const avatarHome = document.getElementById('avatar-home');
+
+let modoCriar = false;
+
+abaEntrar.addEventListener('click', () => {
+  modoCriar = false;
+  abaEntrar.classList.add('ativa');
+  abaCriar.classList.remove('ativa');
+  campoNome.classList.add('escondido');
+  btnConfirmar.textContent = 'Entrar';
+  msgErro.textContent = '';
+});
+
+abaCriar.addEventListener('click', () => {
+  modoCriar = true;
+  abaCriar.classList.add('ativa');
+  abaEntrar.classList.remove('ativa');
+  campoNome.classList.remove('escondido');
+  btnConfirmar.textContent = 'Registrar';
+  msgErro.textContent = '';
+});
+
+function pegarContas() {
+  return JSON.parse(localStorage.getItem('contas') || '{}');
+}
+
+btnConfirmar.addEventListener('click', () => {
+  const nome = campoNome.value.trim();
+  const email = campoEmail.value.trim().toLowerCase();
+  const senha = campoSenha.value;
+  msgErro.textContent = '';
+
+  if (!email.includes('@') || !email.includes('.')) {
+    msgErro.textContent = 'Digite um email válido.';
+    return;
+  }
+  if (senha.length < 4) {
+    msgErro.textContent = 'A senha precisa ter pelo menos 4 caracteres.';
+    return;
+  }
+
+  const contas = pegarContas();
+
+  if (modoCriar) {
+    if (!nome) {
+      msgErro.textContent = 'Escolhe um nome de usuário.';
+      return;
+    }
+    if (contas[email]) {
+      msgErro.textContent = 'Esse email já tem uma conta. Tenta entrar.';
+      return;
+    }
+    contas[email] = { senha, nome };
+    localStorage.setItem('contas', JSON.stringify(contas));
+  } else {
+    if (!contas[email]) {
+      msgErro.textContent = 'Conta não encontrada. Cria uma primeiro.';
+      return;
+    }
+    if (contas[email].senha !== senha) {
+      msgErro.textContent = 'Senha incorreta.';
+      return;
+    }
+  }
+
+  localStorage.setItem('contaAtual', email);
+  paginaLogin.classList.add('escondido');
+  abrirTelaSkin(email);
+});
+
+let skinAtual = { corPele: '#F5CD57', corCamisa: '#4A6FA5', corCalca: '#3B3B3B', corCabelo: '#8B4A2B' };
+
+function abrirTelaSkin(email) {
+  const salva = localStorage.getItem('skin_' + email);
+  if (salva) skinAtual = JSON.parse(salva);
+
+  paginaSkin.classList.remove('escondido');
+
+  document.querySelectorAll('.swatches').forEach(grupo => {
+    const alvo = grupo.dataset.alvo;
+    grupo.querySelectorAll('.swatch').forEach(sw => {
+      sw.classList.toggle('selecionado', sw.dataset.cor.toLowerCase() === skinAtual[alvo].toLowerCase());
+      sw.addEventListener('click', () => {
+        skinAtual[alvo] = sw.dataset.cor;
+        grupo.querySelectorAll('.swatch').forEach(s => s.classList.remove('selecionado'));
+        sw.classList.add('selecionado');
+        renderizarPreview();
+      });
+    });
+  });
+
+  renderizarPreview();
+}
+
+function renderizarPreview() {
+  previa.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="width:30px;height:22px;border-radius:50% 50% 30% 30%;background:${skinAtual.corCabelo};margin-bottom:-4px;"></div>
+      <div style="width:26px;height:22px;background:${skinAtual.corPele};border-radius:3px;"></div>
+      <div style="display:flex;">
+        <div style="width:10px;height:30px;background:${skinAtual.corPele};margin-right:2px;border-radius:2px;"></div>
+        <div style="width:34px;height:30px;background:${skinAtual.corCamisa};border-radius:2px;"></div>
+        <div style="width:10px;height:30px;background:${skinAtual.corPele};margin-left:2px;border-radius:2px;"></div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <div style="width:14px;height:28px;background:${skinAtual.corCalca};border-radius:2px;"></div>
+        <div style="width:14px;height:28px;background:${skinAtual.corCalca};border-radius:2px;"></div>
+      </div>
+    </div>
+  `;
+}
+
+btnConfirmarSkin.addEventListener('click', () => {
+  const email = localStorage.getItem('contaAtual');
+  localStorage.setItem('skin_' + email, JSON.stringify(skinAtual));
+  const contas = pegarContas();
+  const nome = (contas[email] && contas[email].nome) || 'Jogador';
+  tituloBoasVindas.textContent = 'Olá, ' + nome + '!';
+  avatarHome.style.background = skinAtual.corCamisa;
+  paginaSkin.classList.add('escondido');
+  paginaHome.classList.remove('escondido');
+});
+
+btnJogar.addEventListener('click', () => {
+  const email = localStorage.getItem('contaAtual');
+  localStorage.setItem('skinEscolhida', JSON.stringify(skinAtual));
+  localStorage.setItem('nomeJogador', pegarContas()[email].nome);
+  window.location.href = 'jogo.html';
+});
+
+const linkSair = document.getElementById('link-sair'); if (linkSair) linkSair.addEventListener('click', (e) => { e.preventDefault(); localStorage.removeItem('contaAtual'); location.reload(); }); const contaJaLogada = localStorage.getItem('contaAtual');
+if (contaJaLogada && pegarContas()[contaJaLogada]) {
+  paginaLogin.classList.add('escondido');
+  abrirTelaSkin(contaJaLogada);
+}
+</script>
+</body>
+</html>
+<script>
+const paginaLogin = document.getElementById('pagina-login');
+const paginaSkin = document.getElementById('pagina-skin');
+const paginaHome = document.getElementById('pagina-home');
+const abaEntrar = document.getElementById('aba-entrar');
+const abaCriar = document.getElementById('aba-criar');
+const campoNome = document.getElementById('campo-nome');
+const campoEmail = document.getElementById('campo-email');
+const campoSenha = document.getElementById('campo-senha');
+const btnConfirmar = document.getElementById('btn-confirmar');
+const msgErro = document.getElementById('msg-erro');
+const previa = document.getElementById('previa');
+const btnConfirmarSkin = document.getElementById('btn-confirmar-skin');
+const btnJogar = document.getElementById('btn-jogar');
+const tituloBoasVindas = document.getElementById('titulo-boasvindas');
+const avatarHome = document.getElementById('avatar-home');
+
+let modoCriar = false;
+
+abaEntrar.addEventListener('click', () => {
+  modoCriar = false;
+  abaEntrar.classList.add('ativa');
+  abaCriar.classList.remove('ativa');
+  campoNome.classList.add('escondido');
+  btnConfirmar.textContent = 'Entrar';
+  msgErro.textContent = '';
+});
+
+abaCriar.addEventListener('click', () => {
+  modoCriar = true;
+  abaCriar.classList.add('ativa');
+  abaEntrar.classList.remove('ativa');
+  campoNome.classList.remove('escondido');
+  btnConfirmar.textContent = 'Registrar';
+  msgErro.textContent = '';
+});
+
+function pegarContas() {
+  return JSON.parse(localStorage.getItem('contas') || '{}');
+}
+
+btnConfirmar.addEventListener('click', () => {
+  const nome = campoNome.value.trim();
+  const email = campoEmail.value.trim().toLowerCase();
+  const senha = campoSenha.value;
+  msgErro.textContent = '';
+
+  if (!email.includes('@') || !email.includes('.')) {
+    msgErro.textContent = 'Digite um email válido.';
+    return;
+  }
+  if (senha.length < 4) {
+    msgErro.textContent = 'A senha precisa ter pelo menos 4 caracteres.';
+    return;
+  }
+
+  const contas = pegarContas();
+
+  if (modoCriar) {
+    if (!nome) {
+      msgErro.textContent = 'Escolhe um nome de usuário.';
+      return;
+    }
+    if (contas[email]) {
+      msgErro.textContent = 'Esse email já tem uma conta. Tenta entrar.';
+      return;
+    }
+    contas[email] = { senha, nome };
+    localStorage.setItem('contas', JSON.stringify(contas));
+  } else {
+    if (!contas[email]) {
+      msgErro.textContent = 'Conta não encontrada. Cria uma primeiro.';
+      return;
+    }
+    if (contas[email].senha !== senha) {
+      msgErro.textContent = 'Senha incorreta.';
+      return;
+    }
+  }
+
+  localStorage.setItem('contaAtual', email);
+  paginaLogin.classList.add('escondido');
+  abrirTelaSkin(email);
+});
+
+let skinAtual = { corPele: '#F5CD57', corCamisa: '#4A6FA5', corCalca: '#3B3B3B', corCabelo: '#8B4A2B' };
+
+function abrirTelaSkin(email) {
+  const salva = localStorage.getItem('skin_' + email);
+  if (salva) skinAtual = JSON.parse(salva);
+
+  paginaSkin.classList.remove('escondido');
+
+  document.querySelectorAll('.swatches').forEach(grupo => {
+    const alvo = grupo.dataset.alvo;
+    grupo.querySelectorAll('.swatch').forEach(sw => {
+      sw.classList.toggle('selecionado', sw.dataset.cor.toLowerCase() === skinAtual[alvo].toLowerCase());
+      sw.addEventListener('click', () => {
+        skinAtual[alvo] = sw.dataset.cor;
+        grupo.querySelectorAll('.swatch').forEach(s => s.classList.remove('selecionado'));
+        sw.classList.add('selecionado');
+        renderizarPreview();
+      });
+    });
+  });
+
+  renderizarPreview();
+}
+
+function renderizarPreview() {
+  previa.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="width:30px;height:22px;border-radius:50% 50% 30% 30%;background:${skinAtual.corCabelo};margin-bottom:-4px;"></div>
+      <div style="width:26px;height:22px;background:${skinAtual.corPele};border-radius:3px;"></div>
+      <div style="display:flex;">
+        <div style="width:10px;height:30px;background:${skinAtual.corPele};margin-right:2px;border-radius:2px;"></div>
+        <div style="width:34px;height:30px;background:${skinAtual.corCamisa};border-radius:2px;"></div>
+        <div style="width:10px;height:30px;background:${skinAtual.corPele};margin-left:2px;border-radius:2px;"></div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <div style="width:14px;height:28px;background:${skinAtual.corCalca};border-radius:2px;"></div>
+        <div style="width:14px;height:28px;background:${skinAtual.corCalca};border-radius:2px;"></div>
+      </div>
+    </div>
+  `;
+}
+
+btnConfirmarSkin.addEventListener('click', () => {
+  const email = localStorage.getItem('contaAtual');
+  localStorage.setItem('skin_' + email, JSON.stringify(skinAtual));
+  const contas = pegarContas();
+  const nome = (contas[email] && contas[email].nome) || 'Jogador';
+  tituloBoasVindas.textContent = 'Olá, ' + nome + '!';
+  avatarHome.style.background = skinAtual.corCamisa;
+  paginaSkin.classList.add('escondido');
+  paginaHome.classList.remove('escondido');
+});
+
+btnJogar.addEventListener('click', () => {
+  const email = localStorage.getItem('contaAtual');
+  localStorage.setItem('skinEscolhida', JSON.stringify(skinAtual));
+  localStorage.setItem('nomeJogador', pegarContas()[email].nome);
+  window.location.href = 'jogo.html';
+});
+
+const linkSair = document.getElementById('link-sair'); if (linkSair) linkSair.addEventListener('click', (e) => { e.preventDefault(); localStorage.removeItem('contaAtual'); location.reload(); }); const contaJaLogada = localStorage.getItem('contaAtual');
+if (contaJaLogada && pegarContas()[contaJaLogada]) {
+  paginaLogin.classList.add('escondido');
+  abrirTelaSkin(contaJaLogada);
+}
+</script>
+</body>
+</html>
