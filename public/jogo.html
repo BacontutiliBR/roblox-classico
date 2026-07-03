@@ -299,7 +299,7 @@ function removerOutroJogador(id) {
 
 let ws;
 function conectar() {
-  ws = new WebSocket('ws://' + location.host);
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
 
   ws.addEventListener('open', () => {
     statusConexao.textContent = '';
