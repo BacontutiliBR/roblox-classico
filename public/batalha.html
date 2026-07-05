@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<script>window.onerror = function(msg, url, line) { alert("ERRO: " + msg + " (linha " + line + ")"); };</script>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Batalha de Poderes</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #1a0d24; touch-action: none; font-family: sans-serif; }
+  canvas { display: block; }
+  .escondido { display: none !important; }
+
+  #tela-personagem { position: fixed; inset: 0; background: linear-gradient(#1a0d24,#3a1a4a); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; padding: 20px; box-sizing: border-box; }
+  #tela-personagem h1 { color: white; font-size: 22px; margin-bottom: 20px; text-align: center; }
+  .cartas-personagem { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .carta-personagem { width: 130px; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; text-align: center; color: white; cursor: pointer; }
+  .carta-personagem.selecionado { border-color: #ffca28; background: rgba(255,202,40,0.15); }
+  .icone-personagem { width: 70px; height: 70px; border-radius: 50%; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+  .nome-personagem { font-size: 13px; font-weight: bold; margin-bottom: 4px; }
+  .desc-personagem { font-size: 10px; opacity: 0.75; }
+  #btn-entrar-batalha { margin-top: 24px; padding: 12px 30px; border-radius: 8px; border: none; background: #d32f2f; color: white; font-weight: bold; font-size: 15px; }
+
+  #hud-topo { position: fixed; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 10; }
+  #barra-vida-wrap { background: rgba(0,0,0,0.5); border-radius: 6px; padding: 6px 10px; width: 160px; }
+  #barra-vida-nome { color: white; font-size: 11px; margin-bottom: 4px; }
+  #barra-vida-fundo { background: #333; height: 10px; border-radius: 5px; overflow: hidden; }
+  #barra-vida-frente { background: #4caf1f; height: 100%; width: 100%; transition: width 0.2s; }
+  .botoes-topo { display: flex; gap: 8px; }
+  .botoes-topo button { background: rgba(0,0,0,0.5); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; padding: 6px 10px; font-size: 12px; }
+
+  #controles { position: fixed; bottom: 24px; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 24px; pointer-events: none; }
+  .direcional { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); gap: 6px; pointer-events: auto; }
+  .botao { background: rgba(255,255,255,0.25); border: 2px solid rgba(255,255,255,0.55); border-radius: 10px; color: white; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+  .botao:active { background: rgba(255,255,255,0.55); }
+  .botoes-acao { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+  #btn-socar, #btn-especial, #pular { width: 74px; height: 74px; border-radius: 50%; color: white; font-weight: bold; font-size: 12px; border: 2px solid rgba(255,255,255,0.6); }
+  #btn-socar { background: rgba(211,47,47,0.6); }
+  #btn-especial { background: rgba(103,58,183,0.6); }
+  #pular { background: rgba(255,200,0,0.4); }
+
+  .bolha-fala { position: fixed; background: white; color: #111; padding: 4px 9px; border-radius: 10px; font-size: 11px; max-width: 150px; text-align: center; pointer-events: none; display: none; transform: translate(-50%, -100%); }
+  .nome-flutuante { position: fixed; color: white; font-size: 11px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); pointer-events: none; transform: translate(-50%, -100%); }
+  #texto-nocaute { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); color: #ff5252; font-size: 26px; font-weight: 900; text-shadow: 0 2px 6px rgba(0,0,0,0.8); display: none; }
+</style>
+</head>
+<body>
+
+<div id="tela-personagem">
+  <h1>Escolha seu usuário</h1>
+  <div class="cartas-personagem">
+    <div class="carta-personagem" data-id="vilao">
+      <div class="icone-personagem" style="background:#4a148c;">🕰️</div>
+      <div class="nome-personagem">Time Stop Villain</div>
+      <div class="desc-personagem">Para o tempo por 2s e acerta socos grátis</div>
+    </div>
+    <div class="carta-personagem" data-id="heroi">
+      <div class="icone-personagem" style="background:#1565c0;">⭐</div>
+      <div class="nome-personagem">Time Stop Hero</div>
+      <div class="desc-personagem">Rajada de socos supervelozes</div>
+    </div>
+    <div class="carta-personagem" data-id="vidente">
+      <div class="icone-personagem" style="background:#2e7d32;">🔮</div>
+      <div class="nome-personagem">Stardust Noob</div>
+      <div class="desc-personagem">Ataque à distância teleguiado</div>
+    </div>
+  </div>
+  <button id="btn-entrar-batalha" disabled>Entrar na batalha</button>
+</div>
+
+<div id="hud-topo" class="escondido">
+  <div id="barra-vida-wrap">
+    <div id="barra-vida-nome">Você</div>
+    <div id="barra-vida-fundo"><div id="barra-vida-frente"></div></div>
+  </div>
+  <div class="botoes-topo">
+    <button id="btn-chat-toggle">💬</button>
+    <button onclick="window.location.href='index.html'">Sair</button>
+  </div>
+</div>
+
+<div id="texto-nocaute">NOCAUTE!</div>
+<div id="overlay-tempo-parado" style="position:fixed; inset:0; background:rgba(20,0,40,0.55); backdrop-filter:grayscale(1); display:none; z-index:15; pointer-events:none;"></div>
+<div id="aviso-tempo-parado" style="position:fixed; top:20%; left:50%; transform:translateX(-50%); color:#e1bee7; font-size:18px; font-weight:900; text-shadow:0 2px 6px rgba(0,0,0,0.9); display:none; z-index:16;">O TEMPO PAROU!</div>
+
+<div id="chat-caixa" class="escondido" style="position:fixed; top:48px; right:10px; width:200px; max-height:220px; background:rgba(0,0,0,0.55); border-radius:8px; padding:8px; z-index:10; display:flex; flex-direction:column;">
+  <div id="chat-mensagens" style="flex:1; overflow-y:auto; font-size:11px; color:white; margin-bottom:6px; max-height:160px;"></div>
+  <div style="display:flex; gap:4px;">
+    <input type="text" id="chat-input" placeholder="Diga algo..." maxlength="80" style="flex:1; padding:6px; border-radius:4px; border:none; font-size:12px;">
+    <button id="chat-enviar" style="padding:6px 8px; border-radius:4px; border:none; background:#3a6ab5; color:white; font-size:12px;">➤</button>
+  </div>
+</div>
+
+<div id="controles" class="escondido">
+  <div class="direcional">
+    <div></div><button class="botao" id="btn-frente">▲</button><div></div>
+    <button class="botao" id="btn-esquerda">◀</button><div></div><button class="botao" id="btn-direita">▶</button>
+  </div>
+  <div class="botoes-acao">
+    <button id="pular">PULAR</button>
+    <button id="btn-especial">ESPECIAL</button>
+    <button id="btn-socar">SOCAR</button>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a0d24);
+scene.fog = new THREE.Fog(0x1a0d24, 25, 70);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(1);
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const luzSol = new THREE.DirectionalLight(0xffffff, 0.7);
+luzSol.position.set(10, 20, 10);
+scene.add(luzSol);
+
+const chao = new THREE.Mesh(
+  new THREE.BoxGeometry(60, 1, 60),
+  new THREE.MeshLambertMaterial({ color: 0x3a2a4a })
+);
+chao.position.y = -0.5;
+scene.add(chao);
+
+const plataformas = [];
+function criarPlataforma(x, y, z, largura, cor) {
+  const p = new THREE.Mesh(
+    new THREE.BoxGeometry(largura, 1, largura),
+    new THREE.MeshLambertMaterial({ color: cor })
+  );
+  p.position.set(x, y, z);
+  scene.add(p);
+  plataformas.push(p);
+}
+criarPlataforma(10, 2, 0, 6, 0x5c4a7a);
+criarPlataforma(-10, 3, 5, 5, 0x4a3a6a);
+criarPlataforma(0, 4, -12, 7, 0x6a4a8a);
+
+const PERSONAGENS = {
+  vilao: { nome: 'Time Stop Villain', corPele: '#e8c39e', corCamisa: '#4a148c', corCalca: '#1a0a2a', corCabelo: '#f5e050' },
+  heroi: { nome: 'Time Stop Hero', corPele: '#c99a6b', corCamisa: '#1565c0', corCalca: '#0d2b4a', corCabelo: '#1a1a1a' },
+  vidente: { nome: 'Stardust Noob', corPele: '#e0b090', corCamisa: '#2e7d32', corCalca: '#1a3a1a', corCabelo: '#7a4a2a' }
+};
+
+function criarCaixa(largura, altura, profundidade, cor) {
+  return new THREE.Mesh(
+    new THREE.BoxGeometry(largura, altura, profundidade),
+    new THREE.MeshLambertMaterial({ color: cor })
+  );
+}
+
+function criarPersonagemModelo(skin) {
+  const grupo = new THREE.Group();
+
+  function criarMembro(pivoX, pivoY, corMembro) {
+    const pivot = new THREE.Group();
+    pivot.position.set(pivoX, pivoY, 0);
+    const mesh = criarCaixa(1, 2, 1, corMembro);
+    mesh.position.y = -1;
+    pivot.add(mesh);
+    grupo.add(pivot);
+    return pivot;
+  }
+
+  const pernaEsquerdaPivot = criarMembro(-0.55, 2, skin.corCalca);
+  const pernaDireitaPivot = criarMembro(0.55, 2, skin.corCalca);
+  const bracoEsquerdoPivot = criarMembro(-1.5, 4, skin.corPele);
+  const bracoDireitoPivot = criarMembro(1.5, 4, skin.corPele);
+
+  const torso = criarCaixa(2, 2, 1, skin.corCamisa);
+  torso.position.y = 3;
+  grupo.add(torso);
+
+  const cabeca = criarCaixa(1.2, 1.2, 1.2, skin.corPele);
+  cabeca.position.y = 4.8;
+  grupo.add(cabeca);
+
+  const cabelo = criarCaixa(1.3, 0.5, 1.3, skin.corCabelo);
+  cabelo.position.y = 5.5;
+  grupo.add(cabelo);
+
+  scene.add(grupo);
+  return { grupo, pernaEsquerdaPivot, pernaDireitaPivot, bracoEsquerdoPivot, bracoDireitoPivot };
+}
+
+let personagemEscolhido = null;
+document.querySelectorAll('.carta-personagem').forEach(carta => {
+  carta.addEventListener('click', () => {
+    document.querySelectorAll('.carta-personagem').forEach(c => c.classList.remove('selecionado'));
+    carta.classList.add('selecionado');
+    personagemEscolhido = carta.dataset.id;
+    document.getElementById('btn-entrar-batalha').disabled = false;
+  });
+});
+
+const skinSalva = JSON.parse(localStorage.getItem('skinEscolhida') || '{}');
+const nomeJogador = localStorage.getItem('nomeJogador') || 'Jogador';
+let grupoPersonagem, pernaEsquerdaPivot, pernaDireitaPivot, bracoEsquerdoPivot, bracoDireitoPivot;
+let meuVida = 100;
+
+document.getElementById('btn-entrar-batalha').addEventListener('click', () => {
+  if (!personagemEscolhido) return;
+  const skin = PERSONAGENS[personagemEscolhido];
+  const modelo = criarPersonagemModelo(skin);
+  grupoPersonagem = modelo.grupo;
+  pernaEsquerdaPivot = modelo.pernaEsquerdaPivot;
+  pernaDireitaPivot = modelo.pernaDireitaPivot;
+  bracoEsquerdoPivot = modelo.bracoEsquerdoPivot;
+  bracoDireitoPivot = modelo.bracoDireitoPivot;
+  grupoPersonagem.position.set(0, 0, 8);
+
+  document.getElementById('tela-personagem').classList.add('escondido');
+  document.getElementById('hud-topo').classList.remove('escondido');
+  document.getElementById('controles').classList.remove('escondido');
+  document.getElementById('barra-vida-nome').textContent = nomeJogador + ' (' + skin.nome + ')';
+
+  const corStand = { vilao: 0x9c27b0, heroi: 0x2196f3, vidente: 0x4caf50 }[personagemEscolhido] || 0xffffff;
+  meuStand = criarStand(corStand);
+
+  conectar(personagemEscolhido);
+  animar();
+});
+let anguloCamera = 0;
+let alturaCamera = 0.3;
+const distanciaCamera = 9;
+let arrastando = false;
+let ultimoX = 0;
+let ultimoY = 0;
+
+function iniciarArraste(x, y) { arrastando = true; ultimoX = x; ultimoY = y; }
+function moverArraste(x, y) {
+  if (!arrastando) return;
+  const deltaX = x - ultimoX;
+  const deltaY = y - ultimoY;
+  anguloCamera -= deltaX * 0.008;
+  alturaCamera = Math.max(-0.5, Math.min(1.2, alturaCamera + deltaY * 0.006));
+  ultimoX = x; ultimoY = y;
+}
+function pararArraste() { arrastando = false; }
+
+document.body.addEventListener('touchstart', (e) => {
+  if (e.target.closest('#controles, #hud-topo, #chat-caixa, #tela-personagem')) return;
+  const t = e.touches[0];
+  iniciarArraste(t.clientX, t.clientY);
+});
+document.body.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  moverArraste(t.clientX, t.clientY);
+});
+document.body.addEventListener('touchend', pararArraste);
+document.body.addEventListener('mousedown', (e) => {
+  if (e.target.closest('#controles, #hud-topo, #chat-caixa, #tela-personagem')) return;
+  iniciarArraste(e.clientX, e.clientY);
+});
+window.addEventListener('mousemove', (e) => moverArraste(e.clientX, e.clientY));
+window.addEventListener('mouseup', pararArraste);
+
+window.anguloCamera = () => anguloCamera;
+window.alturaCamera = () => alturaCamera;
+window.distanciaCamera = distanciaCamera;
+
+const ALTURA_PERSONAGEM = 5.4;
+const RAIO_PERSONAGEM = 0.7;
+const GRAVIDADE = -0.02;
+const VELOCIDADE_PULO = 0.34;
+const VELOCIDADE_MOVIMENTO = 0.1;
+let velocidadeY = 0;
+let noChao = false;
+let tempoAnimacao = 0;
+const direcaoMovimento = new THREE.Vector3();
+const vetorForward = new THREE.Vector3();
+const vetorRight = new THREE.Vector3();
+let ultimoEnvio = 0;
+let cooldownSoco = 0;
+let cooldownEspecial = 0;
+let vivo = true;
+let congelado = false;
+
+const teclas = { frente: false, esquerda: false, direita: false };
+let quererPular = false;
+
+function configurarBotao(id, onPress) {
+  const el = document.getElementById(id);
+  el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); onPress(); });
+  el.addEventListener('mousedown', onPress);
+}
+
+document.getElementById('btn-frente').addEventListener('touchstart', (e) => { e.preventDefault(); teclas.frente = true; });
+document.getElementById('btn-frente').addEventListener('touchend', (e) => { e.preventDefault(); teclas.frente = false; });
+document.getElementById('btn-esquerda').addEventListener('touchstart', (e) => { e.preventDefault(); teclas.esquerda = true; });
+document.getElementById('btn-esquerda').addEventListener('touchend', (e) => { e.preventDefault(); teclas.esquerda = false; });
+document.getElementById('btn-direita').addEventListener('touchstart', (e) => { e.preventDefault(); teclas.direita = true; });
+document.getElementById('btn-direita').addEventListener('touchend', (e) => { e.preventDefault(); teclas.direita = false; });
+configurarBotao('pular', () => quererPular = true);
+configurarBotao('btn-especial', () => tentarEspecial());
+
+function distanciaEntre(a, b) {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.z - b.z) ** 2);
+}
+
+function tentarSocar() {
+  if (cooldownSoco > 0 || !vivo || !ws || ws.readyState !== WebSocket.OPEN) return;
+  cooldownSoco = 25;
+  let alvoMaisProximo = null;
+  let menorDist = 5.5;
+  Object.entries(outrosJogadores).forEach(([id, j]) => {
+    const d = distanciaEntre(grupoPersonagem.position, j.modelo.grupo.position);
+    if (d < menorDist) { menorDist = d; alvoMaisProximo = id; }
+  });
+  if (alvoMaisProximo) {
+    ws.send(JSON.stringify({ tipo: 'socar', alvoId: alvoMaisProximo, dano: 8 }));
+  }
+}
+
+function tentarEspecial() {
+  if (cooldownEspecial > 0 || !vivo || !ws || ws.readyState !== WebSocket.OPEN) return;
+  cooldownEspecial = 150;
+  let alvoMaisProximo = null;
+  let menorDist = 8;
+  Object.entries(outrosJogadores).forEach(([id, j]) => {
+    const d = distanciaEntre(grupoPersonagem.position, j.modelo.grupo.position);
+    if (d < menorDist) { menorDist = d; alvoMaisProximo = id; }
+  });
+  if (alvoMaisProximo) {
+    ws.send(JSON.stringify({ tipo: 'socar', alvoId: alvoMaisProximo, dano: 25 }));
+  }
+}
+
+function worldToScreen(vec3) {
+  const v = vec3.clone().project(camera);
+  return { x: (v.x + 1) / 2 * window.innerWidth, y: (-v.y + 1) / 2 * window.innerHeight };
+}
+
+const outrosJogadores = {};
+let meuId = null;
+
+function criarBolhaElemento() {
+  const el = document.createElement('div');
+  el.className = 'bolha-fala';
+  document.body.appendChild(el);
+  return el;
+}
+function mostrarBolha(el, texto) {
+  el.textContent = texto;
+  el.style.display = 'block';
+  clearTimeout(el._timeout);
+  el._timeout = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function criarOutroJogador(dados) {
+  const skinBase = PERSONAGENS[dados.personagem] || PERSONAGENS.vilao;
+  const modelo = criarPersonagemModelo(skinBase);
+  modelo.grupo.position.set(dados.x || 0, dados.y || 0, dados.z || 8);
+
+  const nomeSprite = document.createElement('div');
+  nomeSprite.className = 'nome-flutuante';
+  nomeSprite.textContent = (dados.nome || 'Jogador') + ' (' + skinBase.nome + ')';
+  document.body.appendChild(nomeSprite);
+
+  outrosJogadores[dados.id] = {
+    modelo, bolha: criarBolhaElemento(), nomeSprite,
+    alvoX: dados.x || 0, alvoY: dados.y || 0, alvoZ: dados.z || 8,
+    alvoRotY: dados.rotY || 0, andando: false, tempoAnimacao: 0,
+    vida: dados.vida != null ? dados.vida : 100
+  };
+}
+
+function removerOutroJogador(id) {
+  const j = outrosJogadores[id];
+  if (!j) return;
+  scene.remove(j.modelo.grupo);
+  j.bolha.remove();
+  j.nomeSprite.remove();
+  delete outrosJogadores[id];
+}
+
+let bolhaLocalCache = null;
+function criarBolhaLocal() {
+  bolhaLocalCache = document.createElement('div');
+  bolhaLocalCache.className = 'bolha-fala';
+  bolhaLocalCache.id = 'bolha-fala-local';
+  document.body.appendChild(bolhaLocalCache);
+  return bolhaLocalCache;
+}
+
+let ws;
+function conectar(personagem) {
+  const protocolo = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  ws = new WebSocket(protocolo + location.host);
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ tipo: 'entrar', nome: nomeJogador, skin: skinSalva, personagem: personagem, sala: 'batalha' }));
+  });
+
+  ws.addEventListener('close', () => { setTimeout(() => conectar(personagem), 2000); });
+
+  ws.addEventListener('message', (event) => {
+    const msg = JSON.parse(event.data);
+
+    if (msg.tipo === 'bemvindo') {
+      meuId = msg.id;
+      Object.values(msg.jogadores).forEach((j) => { if (j.id !== meuId) criarOutroJogador(j); });
+    }
+    if (msg.tipo === 'entrou' && msg.jogador.id !== meuId) {
+      criarOutroJogador(msg.jogador);
+    }
+    if (msg.tipo === 'mover' && outrosJogadores[msg.id]) {
+      const j = outrosJogadores[msg.id];
+      j.alvoX = msg.x; j.alvoY = msg.y; j.alvoZ = msg.z;
+      j.alvoRotY = msg.rotY; j.andando = msg.andando;
+    }
+    if (msg.tipo === 'chat') {
+      if (msg.id === meuId) {
+        mostrarBolha(document.getElementById('bolha-fala-local') || criarBolhaLocal(), msg.texto);
+      } else if (outrosJogadores[msg.id]) {
+        mostrarBolha(outrosJogadores[msg.id].bolha, msg.texto);
+      }
+      const p = document.createElement('p');
+      p.innerHTML = '<span style="color:#7fd1ff;font-weight:bold;">' + msg.nome + ':</span> ' + msg.texto;
+      chatMensagens.appendChild(p);
+      chatMensagens.scrollTop = chatMensagens.scrollHeight;
+    }
+    if (msg.tipo === 'dano') {
+      if (msg.id === meuId) {
+        meuVida = msg.vida;
+        document.getElementById('barra-vida-frente').style.width = meuVida + '%';
+        if (meuVida <= 30) document.getElementById('barra-vida-frente').style.background = '#d32f2f';
+      } else if (outrosJogadores[msg.id]) {
+        outrosJogadores[msg.id].vida = msg.vida;
+      }
+    }
+    if (msg.tipo === 'nocaute') {
+      if (msg.id === meuId) {
+        vivo = false;
+        document.getElementById('texto-nocaute').style.display = 'block';
+      }
+      if (msg.atacante === meuId && personagemEscolhido === 'heroi') {
+        tempoVitoria = 90;
+      }
+    }
+    if (msg.tipo === 'reviveu') {
+      if (msg.id === meuId) {
+        vivo = true;
+        meuVida = 100;
+        document.getElementById('barra-vida-frente').style.width = '100%';
+        document.getElementById('barra-vida-frente').style.background = '#4caf1f';
+        document.getElementById('texto-nocaute').style.display = 'none';
+        grupoPersonagem.position.set(0, 0, 8);
+      } else if (outrosJogadores[msg.id]) {
+        outrosJogadores[msg.id].vida = 100;
+      }
+    }
+    if (msg.tipo === 'tempo_parado' && msg.id !== meuId) {
+      congelado = true;
+      document.getElementById('overlay-tempo-parado').style.display = 'block';
+      document.getElementById('aviso-tempo-parado').style.display = 'block';
+      setTimeout(() => {
+        congelado = false;
+        document.getElementById('overlay-tempo-parado').style.display = 'none';
+        document.getElementById('aviso-tempo-parado').style.display = 'none';
+      }, msg.duracao || 3000);
+    }
+    if (msg.tipo === 'saiu') removerOutroJogador(msg.id);
+  });
+}
+
+const chatToggle = document.getElementById('btn-chat-toggle');
+const chatCaixa = document.getElementById('chat-caixa');
+const chatMensagens = document.getElementById('chat-mensagens');
+const chatInput = document.getElementById('chat-input');
+const chatEnviar = document.getElementById('chat-enviar');
+chatToggle.addEventListener('click', () => chatCaixa.classList.toggle('escondido'));
+function enviarMensagem() {
+  const texto = chatInput.value.trim();
+  if (!texto || !ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ tipo: 'chat', texto: texto }));
+  chatInput.value = '';
+}
+chatEnviar.addEventListener('click', enviarMensagem);
+chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') enviarMensagem(); });
+
+function animar() {
+  requestAnimationFrame(animar);
+  if (cooldownSoco > 0) cooldownSoco--;
+  if (cooldownEspecial > 0) cooldownEspecial--;
+
+  const ang = window.anguloCamera();
+  vetorForward.set(-Math.sin(ang), 0, -Math.cos(ang));
+  vetorRight.set(Math.cos(ang), 0, -Math.sin(ang));
+
+  direcaoMovimento.set(0, 0, 0);
+  if (vivo && !congelado) {
+    if (teclas.frente) direcaoMovimento.add(vetorForward);
+    if (teclas.direita) direcaoMovimento.add(vetorRight);
+    if (teclas.esquerda) direcaoMovimento.sub(vetorRight);
+  }
+  const andando = direcaoMovimento.lengthSq() > 0.0001;
+  if (andando) {
+    direcaoMovimento.normalize().multiplyScalar(VELOCIDADE_MOVIMENTO);
+    grupoPersonagem.position.x += direcaoMovimento.x;
+    grupoPersonagem.position.z += direcaoMovimento.z;
+    grupoPersonagem.rotation.y = Math.atan2(direcaoMovimento.x, direcaoMovimento.z);
+    tempoAnimacao += 0.15;
+  }
+
+  const anguloAlvo = andando ? Math.sin(tempoAnimacao) * 0.8 : 0;
+  pernaEsquerdaPivot.rotation.x = THREE.MathUtils.lerp(pernaEsquerdaPivot.rotation.x, anguloAlvo, 0.3);
+  pernaDireitaPivot.rotation.x = THREE.MathUtils.lerp(pernaDireitaPivot.rotation.x, -anguloAlvo, 0.3);
+  bracoEsquerdoPivot.rotation.x = THREE.MathUtils.lerp(bracoEsquerdoPivot.rotation.x, -anguloAlvo, 0.3);
+  bracoDireitoPivot.rotation.x = THREE.MathUtils.lerp(bracoDireitoPivot.rotation.x, anguloAlvo, 0.3);
+
+  if (quererPular && noChao && vivo) { velocidadeY = VELOCIDADE_PULO; noChao = false; }
+  quererPular = false;
+
+  velocidadeY += GRAVIDADE;
+  let novoY = grupoPersonagem.position.y + velocidadeY;
+  noChao = false;
+  if (novoY <= 0) { novoY = 0; velocidadeY = 0; noChao = true; }
+
+  for (const p of plataformas) {
+    const dx = Math.abs(grupoPersonagem.position.x - p.position.x);
+    const dz = Math.abs(grupoPersonagem.position.z - p.position.z);
+    const meiaLargura = p.geometry.parameters.width / 2;
+    if (dx < meiaLargura + RAIO_PERSONAGEM && dz < meiaLargura + RAIO_PERSONAGEM) {
+      const topoPlataforma = p.position.y + 0.5;
+      if (velocidadeY <= 0 && grupoPersonagem.position.y >= topoPlataforma - 0.2 && novoY <= topoPlataforma) {
+        novoY = topoPlataforma; velocidadeY = 0; noChao = true;
+      }
+    }
+  }
+  grupoPersonagem.position.y = novoY;
+
+  const agora = performance.now();
+  if (agora - ultimoEnvio > 60 && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      tipo: 'mover', x: grupoPersonagem.position.x, y: grupoPersonagem.position.y,
+      z: grupoPersonagem.position.z, rotY: grupoPersonagem.rotation.y, andando: andando
+    }));
+    ultimoEnvio = agora;
+  }
+
+  Object.values(outrosJogadores).forEach((j) => {
+    j.modelo.grupo.position.x = THREE.MathUtils.lerp(j.modelo.grupo.position.x, j.alvoX, 0.25);
+    j.modelo.grupo.position.y = THREE.MathUtils.lerp(j.modelo.grupo.position.y, j.alvoY, 0.25);
+    j.modelo.grupo.position.z = THREE.MathUtils.lerp(j.modelo.grupo.position.z, j.alvoZ, 0.25);
+    j.modelo.grupo.rotation.y = j.alvoRotY;
+    if (j.andando) j.tempoAnimacao += 0.15;
+    const a = j.andando ? Math.sin(j.tempoAnimacao) * 0.8 : 0;
+    j.modelo.pernaEsquerdaPivot.rotation.x = THREE.MathUtils.lerp(j.modelo.pernaEsquerdaPivot.rotation.x, a, 0.3);
+    j.modelo.pernaDireitaPivot.rotation.x = THREE.MathUtils.lerp(j.modelo.pernaDireitaPivot.rotation.x, -a, 0.3);
+    j.modelo.bracoEsquerdoPivot.rotation.x = THREE.MathUtils.lerp(j.modelo.bracoEsquerdoPivot.rotation.x, -a, 0.3);
+    j.modelo.bracoDireitoPivot.rotation.x = THREE.MathUtils.lerp(j.modelo.bracoDireitoPivot.rotation.x, a, 0.3);
+
+    const cabecaMundo = new THREE.Vector3(j.modelo.grupo.position.x, j.modelo.grupo.position.y + 6.2, j.modelo.grupo.position.z);
+    const pos2d = worldToScreen(cabecaMundo);
+    j.nomeSprite.style.left = pos2d.x + 'px';
+    j.nomeSprite.style.top = pos2d.y + 'px';
+    if (j.bolha.style.display === 'block') {
+      j.bolha.style.left = pos2d.x + 'px';
+      j.bolha.style.top = (pos2d.y - 16) + 'px';
+    }
+  });
+
+  const offsetX = window.distanciaCamera * Math.sin(ang);
+  const offsetZ = window.distanciaCamera * Math.cos(ang);
+  camera.position.set(
+    grupoPersonagem.position.x + offsetX,
+    grupoPersonagem.position.y + 3 + window.alturaCamera() * 4,
+    grupoPersonagem.position.z + offsetZ
+  );
+  camera.lookAt(grupoPersonagem.position.x, grupoPersonagem.position.y + 3, grupoPersonagem.position.z);
+
+  if (meuStand) {
+    posicionarStand();
+    if (tempoVitoria > 0) {
+      tempoVitoria--;
+      meuStand.bracoEsqStand.rotation.x = -2.6;
+      meuStand.bracoDirStand.rotation.x = -2.6;
+    } else if (animandoSoco > 0) {
+      animandoSoco--;
+      if (ladoSocoAlternado) {
+        meuStand.bracoDirStand.rotation.x = -1.9;
+        meuStand.bracoEsqStand.rotation.x = 0.2;
+      } else {
+        meuStand.bracoEsqStand.rotation.x = -1.9;
+        meuStand.bracoDirStand.rotation.x = 0.2;
+      }
+    } else {
+      meuStand.bracoDirStand.rotation.x = THREE.MathUtils.lerp(meuStand.bracoDirStand.rotation.x, 0, 0.35);
+      meuStand.bracoEsqStand.rotation.x = THREE.MathUtils.lerp(meuStand.bracoEsqStand.rotation.x, 0, 0.35);
+    }
+  }
+
+  const bolhaLocal = document.getElementById('bolha-fala-local');
+  if (bolhaLocal && bolhaLocal.style.display === 'block') {
+    const cabecaMundo2 = new THREE.Vector3(grupoPersonagem.position.x, grupoPersonagem.position.y + 6.2, grupoPersonagem.position.z);
+    const pos2d2 = worldToScreen(cabecaMundo2);
+    bolhaLocal.style.left = pos2d2.x + 'px';
+    bolhaLocal.style.top = pos2d2.y + 'px';
+  }
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function criarStand(cor) {
+  const stand = new THREE.Group();
+  const torsoStand = new THREE.Mesh(
+    new THREE.BoxGeometry(1.6, 2.2, 0.9),
+    new THREE.MeshLambertMaterial({ color: cor, transparent: true, opacity: 0.55 })
+  );
+  torsoStand.position.y = 3;
+  stand.add(torsoStand);
+  const cabecaStand = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshLambertMaterial({ color: cor, transparent: true, opacity: 0.55 })
+  );
+  cabecaStand.position.y = 4.6;
+  stand.add(cabecaStand);
+  const bracoEsqStand = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 1.8, 0.7),
+    new THREE.MeshLambertMaterial({ color: cor, transparent: true, opacity: 0.55 })
+  );
+  bracoEsqStand.position.set(-1.1, 3.2, 0);
+  stand.add(bracoEsqStand);
+  const bracoDirStand = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 1.8, 0.7),
+    new THREE.MeshLambertMaterial({ color: cor, transparent: true, opacity: 0.55 })
+  );
+  bracoDirStand.position.set(1.1, 3.2, 0);
+  stand.add(bracoDirStand);
+  scene.add(stand);
+  return { grupo: stand, bracoEsqStand, bracoDirStand };
+}
+
+let meuStand = null;
+let animandoSoco = 0;
+let ladoSocoAlternado = false;
+let tempoVitoria = 0;
+let segurandoSoco = false;
+let socoAutoTimer = null;
+
+function acharAlvoMaisProximo(alcance) {
+  let alvo = null;
+  let menorDist = alcance;
+  Object.values(outrosJogadores).forEach((j) => {
+    const d = distanciaEntre(grupoPersonagem.position, j.modelo.grupo.position);
+    if (d < menorDist) { menorDist = d; alvo = j; }
+  });
+  return alvo;
+}
+
+function posicionarStand() {
+  const atacando = animandoSoco > 0;
+  let anguloUsar = grupoPersonagem.rotation.y;
+  let distancia = 2.6;
+
+  if (atacando) {
+    const alvo = acharAlvoMaisProximo(6);
+    if (alvo) {
+      const dx = alvo.modelo.grupo.position.x - grupoPersonagem.position.x;
+      const dz = alvo.modelo.grupo.position.z - grupoPersonagem.position.z;
+      anguloUsar = Math.atan2(dx, dz);
+      distancia = Math.min(3.4, Math.max(2.0, Math.sqrt(dx * dx + dz * dz) * 0.55));
+    } else {
+      distancia = 3.4;
+    }
+  }
+
+  const offsetX = distancia * Math.sin(anguloUsar);
+  const offsetZ = distancia * Math.cos(anguloUsar);
+  meuStand.grupo.position.set(
+    grupoPersonagem.position.x + offsetX,
+    grupoPersonagem.position.y,
+    grupoPersonagem.position.z + offsetZ
+  );
+  meuStand.grupo.rotation.y = anguloUsar;
+}
+
+function socoUnico() {
+  animandoSoco = 10;
+  tentarSocar();
+}
+
+function iniciarBarrage() {
+  segurandoSoco = true;
+  socoAutoTimer = setInterval(() => {
+    animandoSoco = 7;
+    tentarSocar();
+  }, 180);
+}
+function pararBarrage() {
+  segurandoSoco = false;
+  clearInterval(socoAutoTimer);
+}
+
+const btnSocarEl = document.getElementById('btn-socar');
+let tempoPressionado = 0;
+btnSocarEl.addEventListener('touchstart', (e) => { e.preventDefault(); tempoPressionado = Date.now(); setTimeout(() => { if (Date.now() - tempoPressionado >= 250) iniciarBarrage(); }, 250); });
+btnSocarEl.addEventListener('touchend', (e) => { e.preventDefault(); const duracao = Date.now() - tempoPressionado; pararBarrage(); if (duracao < 250) socoUnico(); });
+btnSocarEl.addEventListener('mousedown', () => { tempoPressionado = Date.now(); setTimeout(() => { if (Date.now() - tempoPressionado >= 250) iniciarBarrage(); }, 250); });
+btnSocarEl.addEventListener('mouseup', () => { const duracao = Date.now() - tempoPressionado; pararBarrage(); if (duracao < 250) socoUnico(); });
+</script>
+</body>
+</html>

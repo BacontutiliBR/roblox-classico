@@ -303,7 +303,7 @@ function conectar() {
 
   ws.addEventListener('open', () => {
     statusConexao.textContent = '';
-    ws.send(JSON.stringify({ tipo: 'entrar', nome: nomeJogador, skin: meuSkin }));
+    ws.send(JSON.stringify({ tipo: 'entrar', nome: nomeJogador, skin: meuSkin, sala: 'blocos' }));
   });
 
   ws.addEventListener('close', () => {

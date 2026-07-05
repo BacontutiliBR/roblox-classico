@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -33,10 +33,10 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server });
 const jogadores = {};
 
-function broadcast(mensagem, remetente) {
+function broadcastSala(sala, mensagem) {
   const texto = JSON.stringify(mensagem);
   wss.clients.forEach((cliente) => {
-    if (cliente.readyState === WebSocket.OPEN) {
+    if (cliente.readyState === WebSocket.OPEN && cliente.sala === sala) {
       cliente.send(texto);
     }
   });
@@ -45,6 +45,7 @@ function broadcast(mensagem, remetente) {
 wss.on('connection', (ws) => {
   ws.vivo = true;
   ws.on('pong', () => { ws.vivo = true; });
+
   const id = Math.random().toString(36).substring(2, 10);
 
   ws.on('message', (dados) => {
@@ -52,13 +53,17 @@ wss.on('connection', (ws) => {
     try { msg = JSON.parse(dados); } catch (e) { return; }
 
     if (msg.tipo === 'entrar') {
+      const sala = msg.sala || 'blocos';
+      ws.sala = sala;
       jogadores[id] = {
         id, nome: msg.nome || 'Jogador',
         skin: msg.skin || {},
-        x: 0, y: 0, z: 8, rotY: 0, andando: false
+        personagem: msg.personagem || null,
+        x: 0, y: 0, z: 8, rotY: 0, andando: false,
+        vida: 100, sala
       };
-      ws.send(JSON.stringify({ tipo: 'bemvindo', id, jogadores }));
-      broadcast({ tipo: 'entrou', jogador: jogadores[id] });
+      ws.send(JSON.stringify({ tipo: 'bemvindo', id, jogadores: Object.fromEntries(Object.entries(jogadores).filter(([_, j]) => j.sala === sala)) }));
+      broadcastSala(sala, { tipo: 'entrou', jogador: jogadores[id] });
     }
 
     if (msg.tipo === 'mover' && jogadores[id]) {
@@ -67,21 +72,44 @@ wss.on('connection', (ws) => {
       jogadores[id].z = msg.z;
       jogadores[id].rotY = msg.rotY;
       jogadores[id].andando = msg.andando;
-      broadcast({ tipo: 'mover', id, x: msg.x, y: msg.y, z: msg.z, rotY: msg.rotY, andando: msg.andando });
+      broadcastSala(jogadores[id].sala, { tipo: 'mover', id, x: msg.x, y: msg.y, z: msg.z, rotY: msg.rotY, andando: msg.andando });
     }
 
     if (msg.tipo === 'chat' && jogadores[id]) {
-      broadcast({ tipo: 'chat', id, nome: jogadores[id].nome, texto: msg.texto });
+      broadcastSala(jogadores[id].sala, { tipo: 'chat', id, nome: jogadores[id].nome, texto: msg.texto });
     }
 
     if (msg.tipo === 'pular' && jogadores[id]) {
-      broadcast({ tipo: 'pular', id });
+      broadcastSala(jogadores[id].sala, { tipo: 'pular', id });
+    }
+
+    if (msg.tipo === 'time_stop' && jogadores[id]) {
+      broadcastSala(jogadores[id].sala, { tipo: 'tempo_parado', id, duracao: 3000 });
+    }
+
+    if (msg.tipo === 'socar' && jogadores[id] && jogadores[msg.alvoId]) {
+      const alvo = jogadores[msg.alvoId];
+      if (alvo.vida > 0) {
+        alvo.vida = Math.max(0, alvo.vida - (msg.dano || 8));
+        broadcastSala(jogadores[id].sala, { tipo: 'dano', id: msg.alvoId, vida: alvo.vida, atacante: id });
+        if (alvo.vida === 0) {
+          broadcastSala(jogadores[id].sala, { tipo: 'nocaute', id: msg.alvoId, atacante: id });
+          setTimeout(() => {
+            if (jogadores[msg.alvoId]) {
+              jogadores[msg.alvoId].vida = 100;
+              broadcastSala(jogadores[id].sala, { tipo: 'reviveu', id: msg.alvoId, vida: 100 });
+            }
+          }, 3000);
+        }
+      }
     }
   });
 
   ws.on('close', () => {
-    delete jogadores[id];
-    broadcast({ tipo: 'saiu', id });
+    if (jogadores[id]) {
+      broadcastSala(jogadores[id].sala, { tipo: 'saiu', id });
+      delete jogadores[id];
+    }
   });
 });
 
