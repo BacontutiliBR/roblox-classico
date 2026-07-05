@@ -33,6 +33,7 @@
 
 <div id="hud">Arraste a tela para olhar ao redor</div>
 <div id="status-conexao"></div>
+<div id="contador-debug" style="position:fixed;top:30px;left:10px;color:#ffeb3b;font-size:12px;z-index:99;"></div>
 <button id="btn-sair" onclick="window.location.href='index.html'">Sair</button>
 <button id="chat-toggle">💬</button>
 <div id="chat-caixa" class="escondido">
@@ -423,6 +424,9 @@ window.addEventListener('keyup', (e) => {
   if (e.key === 'a' || e.key === 'ArrowLeft') teclas.esquerda = false;
   if (e.key === 'd' || e.key === 'ArrowRight') teclas.direita = false;
 });
+
+function atualizarContadorDebug() { const el = document.getElementById("contador-debug"); if (el) el.textContent = "Outros jogadores: " + Object.keys(outrosJogadores).length + " | Meu ID: " + (meuId || "conectando..."); }
+setInterval(atualizarContadorDebug, 1000);
 
 function animar() {
   requestAnimationFrame(animar);
