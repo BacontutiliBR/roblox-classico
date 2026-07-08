@@ -208,6 +208,23 @@ function criarPersonagemModelo(skin) {
   cabeca.position.y = 4.8;
   grupo.add(cabeca);
 
+  const materialRosto = new THREE.MeshBasicMaterial({ color: 0x222222 });
+  const olhoEsquerdo = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), materialRosto);
+  olhoEsquerdo.position.set(-0.25, 4.9, 0.61);
+  grupo.add(olhoEsquerdo);
+  const olhoDireito = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), materialRosto);
+  olhoDireito.position.set(0.25, 4.9, 0.61);
+  grupo.add(olhoDireito);
+
+  const sorrisoGrupo = new THREE.Group();
+  for (let i = -2; i <= 2; i++) {
+    const ponto = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.05), materialRosto);
+    ponto.position.set(i * 0.09, -Math.abs(i) * 0.04, 0);
+    sorrisoGrupo.add(ponto);
+  }
+  sorrisoGrupo.position.set(0, 4.55, 0.61);
+  grupo.add(sorrisoGrupo);
+
   const cabelo = criarCaixa(1.3, 0.5, 1.3, skin.corCabelo);
   cabelo.position.y = 5.5;
   grupo.add(cabelo);
@@ -321,6 +338,9 @@ let cargaUltimate = 0;
 const CARGA_MAXIMA = 100;
 let vivo = true;
 let congelado = false;
+let liberdadeTempoParado = false;
+let buffDanoDobrado = 0;
+let buffCooldownRapido = 0;
 
 const teclas = { frente: false, esquerda: false, direita: false };
 let quererPular = false;
@@ -370,7 +390,7 @@ function ganharCargaUltimate(quantia) {
 
 function tentarSocar() {
   if (cooldownSoco > 0 || !vivo || !ws || ws.readyState !== WebSocket.OPEN) return;
-  cooldownSoco = 25;
+  cooldownSoco = buffCooldownRapido > 0 ? 10 : 25;
   let alvoMaisProximo = null;
   let menorDist = 5.5;
   Object.entries(outrosJogadores).forEach(([id, j]) => {
@@ -378,7 +398,8 @@ function tentarSocar() {
     if (d < menorDist) { menorDist = d; alvoMaisProximo = id; }
   });
   if (alvoMaisProximo) {
-    ws.send(JSON.stringify({ tipo: 'socar', alvoId: alvoMaisProximo, dano: 8 }));
+    const danoFinal = buffDanoDobrado > 0 ? 16 : 8;
+    ws.send(JSON.stringify({ tipo: 'socar', alvoId: alvoMaisProximo, dano: danoFinal }));
   }
 }
 
@@ -552,6 +573,10 @@ function conectar(personagem) {
         outrosJogadores[msg.id].vida = 100;
       }
     }
+    if (msg.tipo === 'tempo_parado' && msg.id === meuId && personagemEscolhido === 'heroi') {
+      liberdadeTempoParado = true;
+      setTimeout(() => { liberdadeTempoParado = false; }, msg.duracao || 4000);
+    }
     if (msg.tipo === 'tempo_parado' && msg.id !== meuId) {
       congelado = true;
       document.getElementById('overlay-tempo-parado').style.display = 'block';
@@ -562,6 +587,10 @@ function conectar(personagem) {
         document.getElementById('overlay-tempo-parado').style.display = 'none';
         document.getElementById('aviso-tempo-parado').style.display = 'none';
       }, msg.duracao || 3000);
+    }
+    if (msg.tipo === 'buff_ativo' && msg.id === meuId) {
+      if (msg.personagem === 'respiro1') buffDanoDobrado = 400;
+      if (msg.personagem === 'respiro2') buffCooldownRapido = 400;
     }
     if (msg.tipo === 'ultimate_usado') {
       const corUlt = { vilao: '#ffd600', heroi: '#9c27b0', vidente: '#4caf50', bolhas: '#01579b', respiro1: '#c62828', respiro2: '#ef6c00' }[msg.personagem] || '#ffffff';
@@ -593,13 +622,15 @@ function animar() {
   requestAnimationFrame(animar);
   if (cooldownSoco > 0) cooldownSoco--;
   if (cooldownEspecial > 0) cooldownEspecial--;
+  if (buffDanoDobrado > 0) buffDanoDobrado--;
+  if (buffCooldownRapido > 0) buffCooldownRapido--;
 
   const ang = window.anguloCamera();
   vetorForward.set(-Math.sin(ang), 0, -Math.cos(ang));
   vetorRight.set(Math.cos(ang), 0, -Math.sin(ang));
 
   direcaoMovimento.set(0, 0, 0);
-  if (vivo && !congelado) {
+  if (vivo && (!congelado || liberdadeTempoParado)) {
     if (teclas.frente) direcaoMovimento.add(vetorForward);
     if (teclas.direita) direcaoMovimento.add(vetorRight);
     if (teclas.esquerda) direcaoMovimento.sub(vetorRight);
